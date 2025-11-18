@@ -1,0 +1,1618 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<title>Compunerea forțelor – simulare 2D / 3D</title>
+<style>
+:root{
+    --bg:#020617;
+    --panel:#020617;
+    --panel-soft:#0f172a;
+    --border:#1f2937;
+    --text:#e5e7eb;
+    --accent:#38bdf8;
+    --vector:#f97316;
+    --radius:14px;
+    --shadow:0 18px 35px rgba(0,0,0,0.55);
+	--resultant:#ffd84d;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+    font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    background:radial-gradient(circle at top,#1e293b 0,#020617 50%,#000 100%);
+    color:var(--text);
+    height:100vh;
+    display:flex;
+    align-items:stretch;
+    justify-content:center;
+}
+.app{
+    display:flex;
+    width:100%;
+    max-width:1300px;
+    height:100vh;
+    padding:16px;
+    gap:16px;
+}
+aside{
+    width:280px;
+    background:rgba(15,23,42,0.95);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:16px 14px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    border:1px solid var(--border);
+    backdrop-filter:blur(10px);
+    overflow-y:auto;
+}
+.app-title{
+    font-size:1.2rem;
+    font-weight:600;
+    margin-bottom:4px;
+}
+.subtitle{
+    font-size:0.85rem;
+    opacity:0.8;
+    line-height:1.35;
+}
+.tab-list{
+    margin-top:10px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+.tab-btn{
+    border:none;
+    border-radius:12px;
+    padding:8px 10px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:rgba(15,23,42,0.9);
+    color:var(--text);
+    font-size:0.9rem;
+    cursor:pointer;
+    transition:background .18s,transform .12s,box-shadow .18s;
+    border:1px solid transparent;
+}
+.tab-btn span.idx{
+    font-size:0.75rem;
+    opacity:0.6;
+    margin-right:4px;
+}
+.tab-btn span.label{
+    flex:1;
+    text-align:left;
+}
+.tab-btn.active{
+    background:linear-gradient(135deg,rgba(56,189,248,0.16),rgba(56,189,248,0.05));
+    border-color:var(--accent);
+    box-shadow:0 0 0 1px rgba(56,189,248,0.5);
+    transform:translateY(-1px);
+}
+.tab-btn:hover{
+    background:rgba(30,64,175,0.55);
+}
+.section-title{
+    font-size:0.9rem;
+    font-weight:600;
+    margin-top:6px;
+    margin-bottom:6px;
+}
+.color-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:6px;
+    font-size:0.8rem;
+}
+.color-row input[type="color"]{
+    border-radius:999px;
+    border:none;
+    width:40px;
+    height:22px;
+    padding:0;
+    background:transparent;
+    cursor:pointer;
+}
+.mini-note{
+    font-size:0.75rem;
+    opacity:0.75;
+    margin-top:4px;
+    line-height:1.3;
+}
+main{
+    flex:1;
+    background:rgba(15,23,42,0.93);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    border:1px solid var(--border);
+    padding:14px 18px 16px 18px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    min-width:0;
+    overflow:hidden;
+}
+header.main-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+}
+.main-title{
+    font-size:1.1rem;
+    font-weight:600;
+}
+.pill{
+    font-size:0.75rem;
+    padding:4px 9px;
+    border-radius:999px;
+    background:rgba(15,118,110,0.2);
+    border:1px solid rgba(34,197,94,0.4);
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+}
+.pill-dot{
+    width:7px;
+    height:7px;
+    border-radius:50%;
+    background:#22c55e;
+    box-shadow:0 0 12px rgba(34,197,94,0.9);
+}
+.tab-panels{
+    flex:1;
+    position:relative;
+    overflow:hidden;
+}
+.tab-panel{
+    position:absolute;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .18s;
+}
+.tab-panel.active{
+    opacity:1;
+    pointer-events:auto;
+}
+.panel-grid{
+    display:grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    grid-template-rows:auto 1fr;
+    gap:10px;
+    height:100%;
+}
+@media(max-width:900px){
+    .app{flex-direction:column;}
+    aside{width:100%;height:auto;order:2;}
+    main{order:1;height:70vh;}
+    .panel-grid{
+        grid-template-columns:1fr;
+        grid-template-rows:auto minmax(220px,1.1fr) auto;
+    }
+}
+.controls{
+    background:var(--panel-soft);
+    border-radius:var(--radius);
+    border:1px solid var(--border);
+    padding:10px 12px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    font-size:0.85rem;
+}
+.control-row{
+    display:grid;
+    grid-template-columns: minmax(120px, 1.2fr) minmax(0, 2fr) 64px;
+    gap:8px;
+    align-items:center;
+}
+.control-row label{
+    font-size:0.8rem;
+    opacity:0.9;
+}
+input[type="range"]{width:100%;}
+input[type="number"]{
+    width:100%;
+    padding:4px 6px;
+    border-radius:8px;
+    border:1px solid #1f2937;
+    background:#020617;
+    color:var(--text);
+    font-size:0.8rem;
+}
+input[type="number"]:focus{
+    outline:none;
+    border-color:var(--accent);
+    box-shadow:0 0 0 1px rgba(56,189,248,0.5);
+}
+select{
+    width:100%;
+    padding:4px 6px;
+    border-radius:8px;
+    border:1px solid #1f2937;
+    background:#020617;
+    color:var(--text);
+    font-size:0.8rem;
+}
+.canvas-wrapper{
+    grid-row: span 2;
+    background:var(--panel-soft);
+    border-radius:var(--radius);
+    border:1px solid var(--border);
+    position:relative;
+    overflow:hidden;
+    display:flex;
+}
+canvas{
+    width:100%;
+    height:100%;
+    display:block;
+}
+.legend{
+    background:var(--panel-soft);
+    border-radius:var(--radius);
+    border:1px solid var(--border);
+    padding:8px 10px;
+    font-size:0.8rem;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+}
+.legend-title{
+    font-weight:600;
+    margin-bottom:2px;
+}
+.legend-grid{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:2px 10px;
+}
+.legend-row{
+    display:flex;
+    justify-content:space-between;
+    gap:6px;
+}
+.legend-row span.value{
+    font-family:"JetBrains Mono","SF Mono",ui-monospace,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+}
+.formula-block{
+    margin-top:4px;
+    padding:6px 7px;
+    border-radius:10px;
+    background:rgba(15,23,42,0.9);
+    border:1px dashed rgba(148,163,184,0.6);
+    font-family:"JetBrains Mono","SF Mono",ui-monospace,monospace;
+    font-size:0.75rem;
+    white-space:pre-line;
+    line-height:1.3;
+}
+.badge{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    font-size:0.7rem;
+    padding:2px 7px;
+    border-radius:999px;
+    background:rgba(56,189,248,0.15);
+    border:1px solid rgba(56,189,248,0.4);
+    margin-bottom:4px;
+}
+.hint{
+    font-size:0.75rem;
+    opacity:0.8;
+    margin-top:2px;
+}
+.mode-row{
+    display:flex;
+    gap:10px;
+    font-size:0.8rem;
+    align-items:center;
+    margin-bottom:2px;
+}
+.mode-row label{
+    display:flex;
+    align-items:center;
+    gap:4px;
+}
+.checkbox-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    font-size:0.8rem;
+}
+.checkbox-row input{margin-left:6px;}
+.hidden{display:none;}
+</style>
+</head>
+<body>
+<div class="app">
+    <aside>
+        <div>
+            <div class="app-title">Compunerea forțelor</div>
+            <div class="subtitle">
+                Simulare interactivă 2D / 3D pentru modul, direcție, sens și compunerea vectorilor de forță.
+            </div>
+        </div>
+
+        <div>
+            <div class="section-title">Tab-uri</div>
+            <div class="tab-list">
+                <button class="tab-btn active" data-tab="tab1">
+                    <span class="idx">1</span>
+                    <span class="label">Vector de forță – 2D / 3D</span>
+                    <span>➤</span>
+                </button>
+                <button class="tab-btn" data-tab="tab2">
+                    <span class="idx">2</span>
+                    <span class="label">Forțe coliniare (același sens)</span>
+                    <span>➤</span>
+                </button>
+                <button class="tab-btn" data-tab="tab3">
+                    <span class="idx">3</span>
+                    <span class="label">Forțe coliniare (sens opus)</span>
+                    <span>➤</span>
+                </button>
+                <button class="tab-btn" data-tab="tab4">
+                    <span class="idx">4</span>
+                    <span class="label">Metoda paralelogramului</span>
+                    <span>➤</span>
+                </button>
+            </div>
+        </div>
+
+        <div>
+            <div class="section-title">Culori & aspect</div>
+            <div class="color-row">
+                <span>Fundal aplicație</span>
+                <input type="color" id="bgColor" value="#020617">
+            </div>
+            <div class="color-row">
+                <span>Text & contur</span>
+                <input type="color" id="textColor" value="#e5e7eb">
+            </div>
+            <div class="color-row">
+                <span>Vectori (desen)</span>
+                <input type="color" id="vectorColor" value="#f97316">
+            </div>
+			<div class="color-row">
+			<span>Culoare rezultantă R</span>
+			<input type="color" id="resultColor" value="#ffd84d">
+			</div>
+            <div class="mini-note">
+                Modifică paleta pentru a se potrivi cu tema clasei sau a evidenția rezultanta.
+            </div>
+        </div>
+
+        <div>
+            <div class="section-title">Parametrii unui vector</div>
+            <div class="mini-note">
+                • <b>Modul</b> – mărimea numerică (|F|, ex: 5 N).<br>
+                • <b>Direcție</b> – dreapta / axa pe care se află vectorul.<br>
+                • <b>Sens</b> – orientarea pe direcție (spre dreapta / stânga etc.).<br>
+                • <b>Punct de aplicație</b> – locul în care „atașăm” forța pe corp.
+            </div>
+        </div>
+    </aside>
+
+    <main>
+        <header class="main-header">
+            <div class="main-title">Laborator virtual: compunerea forțelor</div>
+            <div class="pill"><span class="pill-dot"></span> simulare interactivă</div>
+        </header>
+
+        <div class="tab-panels">
+
+            <!-- TAB 1: VECTOR 2D / 3D -->
+            <section class="tab-panel active" id="tab1">
+                <div class="panel-grid">
+                    <div class="controls">
+                        <div class="badge">Vector unic – 2D / 3D + rotație</div>
+
+                        <div class="mode-row">
+                            Mod de lucru:
+                            <label><input type="radio" name="t1_mode" id="t1_mode2d" value="2d" checked> 2D (plan Ox–Oy)</label>
+                            <label><input type="radio" name="t1_mode" id="t1_mode3d" value="3d"> 3D (Ox–Oy–Oz)</label>
+                        </div>
+
+                        <!-- CONTROALE 2D -->
+                        <div id="t1_2d_controls">
+                            <div class="control-row">
+                                <label for="t1_mag">Modul forței |R| [N]</label>
+                                <input id="t1_mag" type="range" min="0" max="100" step="1" value="40">
+                                <input id="t1_mag_num" type="number" min="0" max="100" step="1" value="40">
+                            </div>
+
+                            <div class="control-row">
+                                <label for="t1_angle">Unghi θ față de axa Ox [°]</label>
+                                <input id="t1_angle" type="range" min="0" max="360" step="1" value="30">
+                                <input id="t1_angle_num" type="number" min="0" max="360" step="1" value="30">
+                            </div>
+
+                            <div class="control-row">
+                                <label for="t1_tailx">Punct de aplicație – poziția pe Ox [%]</label>
+                                <input id="t1_tailx" type="range" min="10" max="90" step="1" value="25">
+                                <input id="t1_tailx_num" type="number" min="10" max="90" step="1" value="25">
+                            </div>
+
+                            <div class="control-row">
+                                <label for="t1_taily">Punct de aplicație – poziția pe Oy [%]</label>
+                                <input id="t1_taily" type="range" min="10" max="90" step="1" value="70">
+                                <input id="t1_taily_num" type="number" min="10" max="90" step="1" value="70">
+                            </div>
+
+                            <div class="control-row">
+                                <label>Sens (descriere)</label>
+                                <select id="t1_sense">
+                                    <option value="math">sens matematic (θ de la Ox spre antiorar)</option>
+                                    <option value="phys">sens fizic: „spre vârful săgeții”</option>
+                                </select>
+                                <span></span>
+                            </div>
+
+                            <div class="checkbox-row">
+                                <span>Rotație automată a vectorului (animație)</span>
+                                <label>ON<input type="checkbox" id="t1_autoRotate"></label>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="t1_rotSpeed">Viteză rotație [°/s]</label>
+                                <input id="t1_rotSpeed" type="range" min="0" max="180" step="5" value="45">
+                                <input id="t1_rotSpeed_num" type="number" min="0" max="180" step="5" value="45">
+                            </div>
+
+                            <div class="hint">
+                                În modul 2D vectorul se rotește în planul Ox–Oy. Afișăm unghiul θ,
+                                tangenta unghiului și modulul |R| = √(Rx² + Ry²).
+                            </div>
+                        </div>
+
+                        <!-- CONTROALE 3D -->
+                        <div id="t1_3d_controls" class="hidden">
+    <div class="control-row">
+        <label for="t1_Fx3">Componenta Rx (proiecție pe Ox) [N]</label>
+        <input id="t1_Fx3" type="range" min="-100" max="100" step="1" value="40">
+        <input id="t1_Fx3_num" type="number" min="-100" max="100" step="1" value="40">
+    </div>
+    <div class="control-row">
+        <label for="t1_Fy3">Componenta Ry (proiecție pe Oy) [N]</label>
+        <input id="t1_Fy3" type="range" min="-100" max="100" step="1" value="30">
+        <input id="t1_Fy3_num" type="number" min="-100" max="100" step="1" value="30">
+    </div>
+    <div class="control-row">
+        <label for="t1_Fz3">Componenta Rz (proiecție pe Oz) [N]</label>
+        <input id="t1_Fz3" type="range" min="-100" max="100" step="1" value="20">
+        <input id="t1_Fz3_num" type="number" min="-100" max="100" step="1" value="20">
+    </div>
+
+    <div class="control-row">
+        <label for="t1_yaw">Rotire în jurul axei verticale (vedere stânga-dreapta) [°]</label>
+        <input id="t1_yaw" type="range" min="-180" max="180" step="1" value="35">
+        <input id="t1_yaw_num" type="number" min="-180" max="180" step="1" value="35">
+    </div>
+
+    <div class="control-row">
+        <label for="t1_pitch">Înclinare în plan vertical (sus-jos) [°]</label>
+        <input id="t1_pitch" type="range" min="-80" max="80" step="1" value="25">
+        <input id="t1_pitch_num" type="number" min="-80" max="80" step="1" value="25">
+    </div>
+
+    <div class="hint">
+        Poți modifica Rx, Ry, Rz și roti întregul sistem de axe Ox, Oy, Oz împreună cu
+        vectorul rezultant R. Proiecțiile pe axe se actualizează automat.
+    </div>
+</div>
+                    </div>
+
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas1"></canvas>
+                    </div>
+
+                    <div class="legend">
+                        <div class="legend-title">Valori – vector unic</div>
+
+                        <!-- Legendă 2D -->
+                        <div id="t1_legend2d">
+                            <div class="legend-grid">
+                                <div class="legend-row">
+                                    <span>Modul |R|:</span><span class="value" id="t1_F_val">40 N</span>
+                                </div>
+                                <div class="legend-row">
+                                    <span>Unghi θ:</span><span class="value" id="t1_theta_val">30°</span>
+                                </div>
+                                <div class="legend-row">
+                                    <span>Rx (proiecție pe Ox):</span><span class="value" id="t1_Fx_val">0 N</span>
+                                </div>
+                                <div class="legend-row">
+                                    <span>Ry (proiecție pe Oy):</span><span class="value" id="t1_Fy_val">0 N</span>
+                                </div>
+                                <div class="legend-row">
+                                    <span>tan θ = Ry/Rx:</span><span class="value" id="t1_tan_val">0</span>
+                                </div>
+                                <div class="legend-row">
+                                    <span>|R| = √(Rx²+Ry²):</span><span class="value" id="t1_mod_from_comp">0 N</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Legendă 3D -->
+                        <div id="t1_legend3d" class="hidden">
+                            <div class="legend-grid">
+                                <div class="legend-row">
+                                    <span>Rx:</span><span class="value" id="t1_Fx3_val">40 N</span>
+                                </div>
+                                <div class="legend-row">
+                                    <span>Ry:</span><span class="value" id="t1_Fy3_val">30 N</span>
+                                </div>
+                                <div class="legend-row">
+                                    <span>Rz:</span><span class="value" id="t1_Fz3_val">20 N</span>
+                                </div>
+                                <div class="legend-row">
+                                    <span>|R|:</span><span class="value" id="t1_R3_val">0 N</span>
+                                </div>
+                                <div class="legend-row">
+                                    <span>αx (cu Ox):</span><span class="value" id="t1_alphax_val">–</span>
+                                </div>
+                                <div class="legend-row">
+                                    <span>αy (cu Oy):</span><span class="value" id="t1_alphay_val">–</span>
+                                </div>
+                                <div class="legend-row">
+                                    <span>αz (cu Oz):</span><span class="value" id="t1_alphaz_val">–</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="formula-block">
+Vector de forță R
+
+2D (plan Ox–Oy):
+ Rx = |R| · cos θ
+ Ry = |R| · sin θ
+ |R| = √(Rx² + Ry²)
+ tan θ = Ry / Rx
+
+3D (spațiu Ox–Oy–Oz):
+ |R| = √(Rx² + Ry² + Rz²)
+
+ unghiurile cu axele (direcție cosinusuri):
+   cos αx = Rx / |R|
+   cos αy = Ry / |R|
+   cos αz = Rz / |R|
+
+ αx, αy, αz – unghiurile pe care le face vectorul R cu axele Ox, Oy, Oz.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: ACELASI SENS -->
+            <section class="tab-panel" id="tab2">
+                <div class="panel-grid">
+                    <div class="controls">
+                        <div class="badge">Forțe coliniare – același sens</div>
+
+                        <div class="control-row">
+                            <label for="t2_F1">Modul F₁ [N]</label>
+                            <input id="t2_F1" type="range" min="0" max="100" step="1" value="30">
+                            <input id="t2_F1_num" type="number" min="0" max="100" step="1" value="30">
+                        </div>
+
+                        <div class="control-row">
+                            <label for="t2_F2">Modul F₂ [N]</label>
+                            <input id="t2_F2" type="range" min="0" max="100" step="1" value="20">
+                            <input id="t2_F2_num" type="number" min="0" max="100" step="1" value="20">
+                        </div>
+
+                        <div class="control-row">
+                            <label for="t2_dir">Direcție comună</label>
+                            <select id="t2_dir">
+                                <option value="right">orizontală spre dreapta</option>
+                                <option value="up">verticală în sus</option>
+                            </select>
+                            <span></span>
+                        </div>
+
+                        <div class="hint">
+                            F₁ și F₂ au aceeași direcție și același sens.
+                            Rezultanta R este suma lor și are aceeași direcție și sens.
+                        </div>
+                    </div>
+
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas2"></canvas>
+                    </div>
+
+                    <div class="legend">
+                        <div class="legend-title">Valori – compunere coliniară (același sens)</div>
+                        <div class="legend-grid">
+                            <div class="legend-row">
+                                <span>F₁:</span><span class="value" id="t2_F1_val">30 N</span>
+                            </div>
+                            <div class="legend-row">
+                                <span>F₂:</span><span class="value" id="t2_F2_val">20 N</span>
+                            </div>
+                            <div class="legend-row">
+                                <span>R (rezultanta):</span><span class="value" id="t2_R_val">50 N</span>
+                            </div>
+                            <div class="legend-row">
+                                <span>Direcție:</span><span class="value" id="t2_dir_val">orizontală</span>
+                            </div>
+                        </div>
+
+                        <div class="formula-block">
+Două forțe coliniare cu aceeași direcție și același sens:
+
+    R = F₁ + F₂
+
+• R are aceeași direcție și același sens cu F₁ și F₂.
+• Rezultanta poate înlocui cele două forțe în același punct de aplicație.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: SENS OPUS -->
+            <section class="tab-panel" id="tab3">
+                <div class="panel-grid">
+                    <div class="controls">
+                        <div class="badge">Forțe coliniare – sens opus</div>
+
+                        <div class="control-row">
+                            <label for="t3_F1">Modul F₁ [N] (spre dreapta)</label>
+                            <input id="t3_F1" type="range" min="0" max="100" step="1" value="50">
+                            <input id="t3_F1_num" type="number" min="0" max="100" step="1" value="50">
+                        </div>
+
+                        <div class="control-row">
+                            <label for="t3_F2">Modul F₂ [N] (spre stânga)</label>
+                            <input id="t3_F2" type="range" min="0" max="100" step="1" value="30">
+                            <input id="t3_F2_num" type="number" min="0" max="100" step="1" value="30">
+                        </div>
+
+                        <div class="hint">
+                            F₁ și F₂ au aceeași direcție dar sensuri opuse.
+                            Rezultanta este diferența lor și are sensul forței mai mari.
+                        </div>
+                    </div>
+
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas3"></canvas>
+                    </div>
+
+                    <div class="legend">
+                        <div class="legend-title">Valori – compunere coliniară (sens opus)</div>
+                        <div class="legend-grid">
+                            <div class="legend-row">
+                                <span>F₁:</span><span class="value" id="t3_F1_val">50 N</span>
+                            </div>
+                            <div class="legend-row">
+                                <span>F₂:</span><span class="value" id="t3_F2_val">30 N</span>
+                            </div>
+                            <div class="legend-row">
+                                <span>|R| (modul):</span><span class="value" id="t3_R_val">20 N</span>
+                            </div>
+                            <div class="legend-row">
+                                <span>Sens R:</span><span class="value" id="t3_R_dir_val">spre dreapta</span>
+                            </div>
+                        </div>
+
+                        <div class="formula-block">
+Două forțe coliniare cu sensuri opuse:
+
+    |R| = |F₁ − F₂|
+    sens(R) = sensul forței cu modul mai mare
+
+Cazuri:
+ • dacă F₁ = F₂  →  |R| = 0  (forțele se compensează)
+ • dacă F₁ ≠ F₂  →  R are direcția comună,
+                    sensul forței mai mari și modulul diferență.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: PARALELOGRAM -->
+            <section class="tab-panel" id="tab4">
+                <div class="panel-grid">
+                    <div class="controls">
+                        <div class="badge">Metoda paralelogramului</div>
+
+                        <div class="control-row">
+                            <label for="t4_F1">Modul F₁ [N]</label>
+                            <input id="t4_F1" type="range" min="0" max="100" step="1" value="40">
+                            <input id="t4_F1_num" type="number" min="0" max="100" step="1" value="40">
+                        </div>
+
+                        <div class="control-row">
+                            <label for="t4_F2">Modul F₂ [N]</label>
+                            <input id="t4_F2" type="range" min="0" max="100" step="1" value="60">
+                            <input id="t4_F2_num" type="number" min="0" max="100" step="1" value="60">
+                        </div>
+
+                        <div class="control-row">
+                            <label for="t4_alpha">Unghi α între F₁ și F₂ [°]</label>
+                            <input id="t4_alpha" type="range" min="0" max="180" step="1" value="60">
+                            <input id="t4_alpha_num" type="number" min="0" max="180" step="1" value="60">
+                        </div>
+
+                        <div class="hint">
+                            Pentru α = 0° sau 180° obții cazurile coliniare.
+                            Pentru α = 90° → R² = F₁² + F₂² (teorema lui Pitagora).
+                        </div>
+                    </div>
+
+                    <div class="canvas-wrapper">
+                        <canvas id="canvas4"></canvas>
+                    </div>
+
+                    <div class="legend">
+                        <div class="legend-title">Valori – metoda paralelogramului</div>
+                        <div class="legend-grid">
+                            <div class="legend-row">
+                                <span>F₁:</span><span class="value" id="t4_F1_val">40 N</span>
+                            </div>
+                            <div class="legend-row">
+                                <span>F₂:</span><span class="value" id="t4_F2_val">60 N</span>
+                            </div>
+                            <div class="legend-row">
+                                <span>α:</span><span class="value" id="t4_alpha_val">60°</span>
+                            </div>
+                            <div class="legend-row">
+                                <span>R (rezultanta):</span><span class="value" id="t4_R_val">0 N</span>
+                            </div>
+                            <div class="legend-row">
+                                <span>Rx:</span><span class="value" id="t4_Rx_val">0 N</span>
+                            </div>
+                            <div class="legend-row">
+                                <span>Ry:</span><span class="value" id="t4_Ry_val">0 N</span>
+                            </div>
+                        </div>
+
+                        <div class="formula-block">
+Metoda paralelogramului (două forțe cu același punct de aplicație):
+
+    R² = F₁² + F₂² + 2·F₁·F₂·cos α
+
+Componenta pe axa Ox (F₁ orizontală):
+    Rx = F₁ + F₂·cos α
+Componenta pe axa Oy:
+    Ry = F₂·sin α
+
+Caz particular (F₁ ⟂ F₂, α = 90°):
+    R² = F₁² + F₂²
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+</div>
+
+<script>
+(function(){
+    function bindSliderNumber(slider, number, onChange){
+        function syncFromSlider(){
+            number.value = slider.value;
+            onChange(parseFloat(slider.value));
+        }
+        function syncFromNumber(){
+            let v = parseFloat(number.value);
+            if(isNaN(v)) v = parseFloat(slider.min);
+            v = Math.min(parseFloat(slider.max), Math.max(parseFloat(slider.min), v));
+            slider.value = v;
+            number.value = v;
+            onChange(v);
+        }
+        slider.addEventListener('input', syncFromSlider);
+        number.addEventListener('change', syncFromNumber);
+        syncFromSlider();
+    }
+
+    const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
+    const tabPanels  = Array.from(document.querySelectorAll('.tab-panel'));
+
+    tabButtons.forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+            const id = btn.dataset.tab;
+            tabButtons.forEach(b=>b.classList.toggle('active', b===btn));
+            tabPanels.forEach(p=>p.classList.toggle('active', p.id===id));
+        });
+    });
+
+    const bgInput     = document.getElementById('bgColor');
+    const textInput   = document.getElementById('textColor');
+    const vectorInput = document.getElementById('vectorColor');
+    let vectorColor   = getComputedStyle(document.documentElement).getPropertyValue('--vector').trim() || '#f97316';
+	
+	const resultInput = document.getElementById('resultColor');
+	let resultColor = getComputedStyle(document.documentElement).getPropertyValue('--resultant').trim() || '#ffd84d';
+	resultInput.addEventListener('input', ()=>{
+    resultColor = resultInput.value;
+    document.documentElement.style.setProperty('--resultant', resultColor);
+	});
+
+    bgInput.addEventListener('input', ()=>{
+        document.documentElement.style.setProperty('--bg', bgInput.value);
+        document.body.style.background = bgInput.value;
+    });
+    textInput.addEventListener('input', ()=>{
+        document.documentElement.style.setProperty('--text', textInput.value);
+        document.body.style.color = textInput.value;
+    });
+    vectorInput.addEventListener('input', ()=>{
+        vectorColor = vectorInput.value;
+        document.documentElement.style.setProperty('--vector', vectorColor);
+    });
+
+    const canvases = [
+        document.getElementById('canvas1'),
+        document.getElementById('canvas2'),
+        document.getElementById('canvas3'),
+        document.getElementById('canvas4')
+    ];
+    const ctxs = canvases.map(c=>c.getContext('2d'));
+
+    function resizeCanvas(canvas){
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        const displayWidth  = rect.width;
+        const displayHeight = rect.height;
+        const needResize = canvas.width !== displayWidth * dpr || canvas.height !== displayHeight * dpr;
+        if(needResize){
+            canvas.width  = displayWidth * dpr;
+            canvas.height = displayHeight * dpr;
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr,0,0,dpr,0,0);
+        }
+        return needResize;
+    }
+
+    function drawArrow(ctx, x1, y1, x2, y2, label, options){
+        options = options || {};
+        const color = options.color || vectorColor;
+        const lineWidth = options.lineWidth || 2;
+        const dashed = options.dashed || false;
+
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = lineWidth;
+        if(dashed) ctx.setLineDash([6,4]);
+
+        ctx.beginPath();
+        ctx.moveTo(x1,y1);
+        ctx.lineTo(x2,y2);
+        ctx.stroke();
+
+        const headLength = 10;
+        const angle = Math.atan2(y2-y1, x2-x1);
+        ctx.beginPath();
+        ctx.moveTo(x2,y2);
+        ctx.lineTo(x2 - headLength*Math.cos(angle - Math.PI/6),
+                   y2 - headLength*Math.sin(angle - Math.PI/6));
+        ctx.lineTo(x2 - headLength*Math.cos(angle + Math.PI/6),
+                   y2 - headLength*Math.sin(angle + Math.PI/6));
+        ctx.closePath();
+        ctx.fill();
+
+        if(label){
+            ctx.setLineDash([]);
+            ctx.font = "11px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+            ctx.textBaseline = "bottom";
+            ctx.textAlign = "center";
+            const midx = (x1+x2)/2;
+            const midy = (y1+y2)/2;
+            const offset = 8;
+            ctx.fillStyle = options.textColor || getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#e5e7eb';
+            ctx.fillText(label, midx, midy - offset);
+        }
+        ctx.restore();
+    }
+
+    // Axele 2D (Ox/Oy punctate, Oy mai scurtă)
+    function drawAxes2D(ctx, w, h){
+        const axisX = 40;
+        const axisY = h - 30;
+        const axisTopY = h * 0.45;
+
+        ctx.save();
+        ctx.strokeStyle = "rgba(148,163,184,0.45)";
+        ctx.lineWidth = 0.8;
+        ctx.setLineDash([3,4]);
+
+        ctx.beginPath();
+        ctx.moveTo(axisX, axisY);
+        ctx.lineTo(w-20, axisY);   // Ox
+        ctx.moveTo(axisX, axisY);
+        ctx.lineTo(axisX, axisTopY); // Oy scurtă
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+        ctx.font = "10px system-ui";
+        ctx.fillStyle = "rgba(148,163,184,0.7)";
+        ctx.fillText("Ox", w-26, axisY-4);
+        ctx.fillText("Oy", axisX-18, axisTopY+12);
+
+        ctx.restore();
+        return {axisX, axisY, axisTopY};
+    }
+
+    // punct verde la origine forței
+    function drawOriginDot(ctx,x,y){
+        ctx.save();
+        ctx.fillStyle = "#22c55e";
+        ctx.beginPath();
+        ctx.arc(x,y,4,0,Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Proiecții coadă+vârf pe axe
+    function drawProjections(ctx, x1,y1,x2,y2, axisX, axisY, colorTail, colorTip){
+        ctx.save();
+        ctx.strokeStyle = "rgba(148,163,184,0.6)";
+        ctx.lineWidth = 0.8;
+        ctx.setLineDash([4,4]);
+
+        ctx.beginPath();
+        // coadă
+        ctx.moveTo(x1,y1); ctx.lineTo(x1,axisY);
+        ctx.moveTo(x1,y1); ctx.lineTo(axisX,y1);
+        // vârf
+        ctx.moveTo(x2,y2); ctx.lineTo(x2,axisY);
+        ctx.moveTo(x2,y2); ctx.lineTo(axisX,y2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        const r = 3;
+        ctx.fillStyle = colorTail || "rgba(56,189,248,0.9)";
+        function dot(x,y){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();}
+        dot(x1,axisY);
+        dot(axisX,y1);
+        ctx.fillStyle = colorTip || "rgba(251,191,36,0.9)";
+        dot(x2,axisY);
+        dot(axisX,y2);
+
+        ctx.restore();
+    }
+
+    // === TAB 1 – stare ===
+    const t1 = {
+        mode:'2d',
+        mag:40,
+        angleDeg:30,
+        tailx:25,
+        taily:70,
+        senseMode:'math',
+        autoRotate:false,
+        rotSpeed:45,
+        Fx3:40,
+        Fy3:30,
+        Fz3:20,
+        yawDeg:35,
+        pitchDeg:25
+    };
+
+    const t1_angle_slider = document.getElementById('t1_angle');
+    const t1_angle_number = document.getElementById('t1_angle_num');
+
+    bindSliderNumber(
+        document.getElementById('t1_mag'),
+        document.getElementById('t1_mag_num'),
+        v=>t1.mag=v
+    );
+    bindSliderNumber(
+        t1_angle_slider,
+        t1_angle_number,
+        v=>t1.angleDeg=v
+    );
+    bindSliderNumber(
+        document.getElementById('t1_tailx'),
+        document.getElementById('t1_tailx_num'),
+        v=>t1.tailx=v
+    );
+    bindSliderNumber(
+        document.getElementById('t1_taily'),
+        document.getElementById('t1_taily_num'),
+        v=>t1.taily=v
+    );
+    document.getElementById('t1_sense').addEventListener('change', e=>{
+        t1.senseMode = e.target.value;
+    });
+
+    document.getElementById('t1_autoRotate').addEventListener('change', e=>{
+        t1.autoRotate = e.target.checked;
+    });
+    bindSliderNumber(
+        document.getElementById('t1_rotSpeed'),
+        document.getElementById('t1_rotSpeed_num'),
+        v=>t1.rotSpeed=v
+    );
+
+    bindSliderNumber(
+        document.getElementById('t1_Fx3'),
+        document.getElementById('t1_Fx3_num'),
+        v=>t1.Fx3=v
+    );
+    bindSliderNumber(
+        document.getElementById('t1_Fy3'),
+        document.getElementById('t1_Fy3_num'),
+        v=>t1.Fy3=v
+    );
+    bindSliderNumber(
+        document.getElementById('t1_Fz3'),
+        document.getElementById('t1_Fz3_num'),
+        v=>t1.Fz3=v
+    );
+
+    bindSliderNumber(
+        document.getElementById('t1_yaw'),
+        document.getElementById('t1_yaw_num'),
+        v=>t1.yawDeg=v
+    );
+    bindSliderNumber(
+        document.getElementById('t1_pitch'),
+        document.getElementById('t1_pitch_num'),
+        v=>t1.pitchDeg=v
+    );
+
+    const t1_mode2d = document.getElementById('t1_mode2d');
+    const t1_mode3d = document.getElementById('t1_mode3d');
+    const t1_controls2d = document.getElementById('t1_2d_controls');
+    const t1_controls3d = document.getElementById('t1_3d_controls');
+    const t1_legend2d  = document.getElementById('t1_legend2d');
+    const t1_legend3d  = document.getElementById('t1_legend3d');
+
+    function updateT1Mode(){
+        if(t1_mode2d.checked){
+            t1.mode = '2d';
+            t1_controls2d.classList.remove('hidden');
+            t1_controls3d.classList.add('hidden');
+            t1_legend2d.classList.remove('hidden');
+            t1_legend3d.classList.add('hidden');
+        }else{
+            t1.mode = '3d';
+            t1_controls2d.classList.add('hidden');
+            t1_controls3d.classList.remove('hidden');
+            t1_legend2d.classList.add('hidden');
+            t1_legend3d.classList.remove('hidden');
+        }
+    }
+    t1_mode2d.addEventListener('change', updateT1Mode);
+    t1_mode3d.addEventListener('change', updateT1Mode);
+    updateT1Mode();
+
+    // TAB 2 – stare
+    const t2 = {F1:30,F2:20,dir:'right'};
+    bindSliderNumber(
+        document.getElementById('t2_F1'),
+        document.getElementById('t2_F1_num'),
+        v=>t2.F1=v
+    );
+    bindSliderNumber(
+        document.getElementById('t2_F2'),
+        document.getElementById('t2_F2_num'),
+        v=>t2.F2=v
+    );
+    document.getElementById('t2_dir').addEventListener('change',e=>{
+        t2.dir = e.target.value;
+    });
+
+    // TAB 3 – stare
+    const t3 = {F1:50,F2:30};
+    bindSliderNumber(
+        document.getElementById('t3_F1'),
+        document.getElementById('t3_F1_num'),
+        v=>t3.F1=v
+    );
+    bindSliderNumber(
+        document.getElementById('t3_F2'),
+        document.getElementById('t3_F2_num'),
+        v=>t3.F2=v
+    );
+
+    // TAB 4 – stare
+    const t4 = {F1:40,F2:60,alpha:60};
+    bindSliderNumber(
+        document.getElementById('t4_F1'),
+        document.getElementById('t4_F1_num'),
+        v=>t4.F1=v
+    );
+    bindSliderNumber(
+        document.getElementById('t4_F2'),
+        document.getElementById('t4_F2_num'),
+        v=>t4.F2=v
+    );
+    bindSliderNumber(
+        document.getElementById('t4_alpha'),
+        document.getElementById('t4_alpha_num'),
+        v=>t4.alpha=v
+    );
+
+    // === TAB 1 desen ===
+    function drawTab1(ctx, canvas, dt){
+        resizeCanvas(canvas);
+        const rect = canvas.getBoundingClientRect();
+        const w = rect.width;
+        const h = rect.height;
+
+        if(t1.mode === '2d' && t1.autoRotate){
+            const deltaAngle = t1.rotSpeed * dt;
+            t1.angleDeg = (t1.angleDeg + deltaAngle) % 360;
+            t1_angle_slider.value = t1.angleDeg;
+            t1_angle_number.value = t1.angleDeg.toFixed(0);
+        }
+
+        ctx.clearRect(0,0,w,h);
+        ctx.save();
+        ctx.fillStyle = "rgba(15,23,42,0.9)";
+        ctx.fillRect(0,0,w,h);
+
+        ctx.strokeStyle = "rgba(148,163,184,0.15)";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        for(let x=0;x<w;x+=40){
+            ctx.moveTo(x,0); ctx.lineTo(x,h);
+        }
+        for(let y=0;y<h;y+=40){
+            ctx.moveTo(0,y); ctx.lineTo(w,y);
+        }
+        ctx.stroke();
+
+        if(t1.mode === '2d'){
+            const axes = drawAxes2D(ctx,w,h);
+            const axisX = axes.axisX;
+            const axisY = axes.axisY;
+
+            const tailX = t1.tailx/100 * (w-80) + 60;
+            const tailY = t1.taily/100 * (h-80) + 40;
+            const angleRad = t1.angleDeg*Math.PI/180;
+            const scale = (Math.min(w,h)-120)/100;
+            const len = t1.mag*scale;
+            const tipX = tailX + len*Math.cos(angleRad);
+            const tipY = tailY - len*Math.sin(angleRad);
+
+            drawProjections(ctx, tailX,tailY, tipX,tipY, axisX,axisY);
+
+            drawArrow(ctx, tailX, tailY, tipX, tipY, "R");
+
+            drawOriginDot(ctx,tailX,tailY);
+
+            ctx.fillStyle = "rgba(148,163,184,0.9)";
+            ctx.font = "11px system-ui";
+            const senseText = (t1.senseMode==="math")
+                ? "Sens matematic: unghiul θ se măsoară de la axa Ox spre sens antiorar."
+                : "Sens fizic: forța acționează în sensul vârfului săgeții (de la coadă spre vârf).";
+            ctx.fillText(senseText, 18, 20);
+
+            ctx.restore();
+
+            const Fx = t1.mag * Math.cos(angleRad);
+            const Fy = t1.mag * Math.sin(angleRad);
+            let tanStr;
+            if(Math.abs(Fx) < 1e-4){
+                tanStr = "∞ (Rx ≈ 0)";
+            }else{
+                tanStr = (Fy/Fx).toFixed(3);
+            }
+            const modFromComp = Math.sqrt(Fx*Fx + Fy*Fy);
+
+            document.getElementById('t1_F_val').textContent   = t1.mag.toFixed(1)+" N";
+            document.getElementById('t1_theta_val').textContent = t1.angleDeg.toFixed(1)+"°";
+            document.getElementById('t1_Fx_val').textContent  = Fx.toFixed(2)+" N";
+            document.getElementById('t1_Fy_val').textContent  = Fy.toFixed(2)+" N";
+            document.getElementById('t1_tan_val').textContent = tanStr;
+            document.getElementById('t1_mod_from_comp').textContent = modFromComp.toFixed(2)+" N";
+        }else{
+            // ======= MOD 3D CU AXE PE AMBELE SENSURI ȘI PROIECȚII CORECTE =======
+            const originX = w*0.5;
+            const originY = h*0.75;
+            const maxComp = 100;                    // slider-ele sunt în [-100,100]
+            const scale   = (Math.min(w,h)*0.35)/maxComp; // mărimea sistemului
+
+            const yaw   = t1.yawDeg*Math.PI/180;    // rotire stânga-dreapta
+            const pitch = t1.pitchDeg*Math.PI/180;  // înclinare sus-jos
+            const cosy = Math.cos(yaw),   siny = Math.sin(yaw);
+            const cosp = Math.cos(pitch), sinp = Math.sin(pitch);
+
+            // proiecție 3D -> 2D, cu rotire yaw + pitch
+            function project3D(x,y,z){
+                // rotire în jurul Oy (yaw)
+                let x1 = x * cosy + z * siny;
+                let z1 = -x * siny + z * cosy;
+                let y1 = y;
+                // rotire în jurul Ox (pitch)
+                let y2 = y1 * cosp - z1 * sinp;
+                let x2 = x1;
+                return {
+                    x: originX + x2*scale,
+                    y: originY - y2*scale
+                };
+            }
+
+            // desenăm axele de la -L la +L ca să acopere și proiecțiile negative
+            const axisLen = 100;
+
+            function drawAxis(start3D, end3D, label){
+                const pStart = project3D(start3D.x,start3D.y,start3D.z);
+                const pEnd   = project3D(end3D.x,end3D.y,end3D.z);
+
+                // axă subțire
+                ctx.save();
+                ctx.strokeStyle = "rgba(148,163,184,0.9)";
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([]);
+                ctx.beginPath();
+                ctx.moveTo(pStart.x,pStart.y);
+                ctx.lineTo(pEnd.x,pEnd.y);
+                ctx.stroke();
+
+                // săgeată la capătul pozitiv
+                const angle = Math.atan2(pEnd.y-pStart.y, pEnd.x-pStart.x);
+                const headLength = 9;
+                ctx.beginPath();
+                ctx.moveTo(pEnd.x,pEnd.y);
+                ctx.lineTo(pEnd.x - headLength*Math.cos(angle - Math.PI/6),
+                           pEnd.y - headLength*Math.sin(angle - Math.PI/6));
+                ctx.lineTo(pEnd.x - headLength*Math.cos(angle + Math.PI/6),
+                           pEnd.y - headLength*Math.sin(angle + Math.PI/6));
+                ctx.closePath();
+                ctx.fillStyle = "rgba(148,163,184,0.9)";
+                ctx.fill();
+
+                // etichetă
+                ctx.font = "11px system-ui";
+                ctx.fillText(label, pEnd.x + 4, pEnd.y - 4);
+                ctx.restore();
+            }
+
+            // Ox: de la -axisLen la +axisLen
+            drawAxis({x:-axisLen,y:0,z:0},{x:axisLen,y:0,z:0},"Ox");
+            // Oy: de la 0 în jos puțin și până în sus, să arate ca axă verticală
+            drawAxis({x:0,y:-20,z:0},{x:0,y:axisLen,z:0},"Oy");
+            // Oz: de la -axisLen la +axisLen
+            drawAxis({x:0,y:0,z:-axisLen},{x:0,y:0,z:axisLen},"Oz");
+
+            // origine comună – punct verde (forțele se aplică aici)
+            drawOriginDot(ctx,originX,originY);
+
+            // vectorul R din componente
+            const Fx3 = t1.Fx3;
+            const Fy3 = t1.Fy3;
+            const Fz3 = t1.Fz3;
+
+            const pTip = project3D(Fx3,Fy3,Fz3);
+            drawArrow(ctx, originX,originY, pTip.x,pTip.y, "R",{lineWidth:3, color: resultColor});
+
+            // proiecții pe Ox, Oy, Oz: punctele de pe axe coresp. lui Rx, Ry, Rz
+            const pRx = project3D(Fx3,0,0);   // pe Ox
+            const pRy = project3D(0,Fy3,0);   // pe Oy
+            const pRz = project3D(0,0,Fz3);   // pe Oz
+
+            // linii punctate de legătură din vârf în proiecții
+            ctx.save();
+            ctx.setLineDash([5,4]);
+            ctx.strokeStyle = "rgba(56,189,248,0.7)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(pTip.x,pTip.y); ctx.lineTo(pRx.x,pRx.y);
+            ctx.moveTo(pTip.x,pTip.y); ctx.lineTo(pRy.x,pRy.y);
+            ctx.moveTo(pTip.x,pTip.y); ctx.lineTo(pRz.x,pRz.y);
+            ctx.stroke();
+            ctx.restore();
+
+            // mici puncte pe axe în locurile de proiecție
+            ctx.save();
+            ctx.fillStyle = "rgba(56,189,248,0.95)";
+            const rProj = 3;
+            function dot(x,y){ctx.beginPath();ctx.arc(x,y,rProj,0,Math.PI*2);ctx.fill();}
+            dot(pRx.x,pRx.y);
+            dot(pRy.x,pRy.y);
+            dot(pRz.x,pRz.y);
+            ctx.restore();
+
+            ctx.fillStyle = "rgba(148,163,184,0.9)";
+            ctx.font = "11px system-ui";
+            ctx.fillText("R și proiecțiile sale pe Ox, Oy, Oz. Poți roti sistemul cu sliderele de rotire.", 16, 22);
+
+            ctx.restore();
+
+            // calcule numerice pentru legendă
+            const Rmod = Math.sqrt(Fx3*Fx3 + Fy3*Fy3 + Fz3*Fz3);
+            let ax="–", ay="–", az="–";
+            if(Rmod>1e-6){
+                ax = (Math.acos(Fx3/Rmod)*180/Math.PI).toFixed(1)+"°";
+                ay = (Math.acos(Fy3/Rmod)*180/Math.PI).toFixed(1)+"°";
+                az = (Math.acos(Fz3/Rmod)*180/Math.PI).toFixed(1)+"°";
+            }
+            document.getElementById('t1_Fx3_val').textContent = Fx3.toFixed(2)+" N";
+            document.getElementById('t1_Fy3_val').textContent = Fy3.toFixed(2)+" N";
+            document.getElementById('t1_Fz3_val').textContent = Fz3.toFixed(2)+" N";
+            document.getElementById('t1_R3_val').textContent  = Rmod.toFixed(2)+" N";
+            document.getElementById('t1_alphax_val').textContent = ax;
+            document.getElementById('t1_alphay_val').textContent = ay;
+            document.getElementById('t1_alphaz_val').textContent = az;
+        }
+    }
+
+    // === TAB 2 desen ===
+    function drawTab2(ctx, canvas){
+        resizeCanvas(canvas);
+        const rect = canvas.getBoundingClientRect();
+        const w = rect.width;
+        const h = rect.height;
+
+        ctx.clearRect(0,0,w,h);
+        ctx.save();
+        ctx.fillStyle = "rgba(15,23,42,0.95)";
+        ctx.fillRect(0,0,w,h);
+
+        const axes = drawAxes2D(ctx,w,h);
+        const axisX = axes.axisX;
+        const axisY = axes.axisY;
+
+        const cx = w*0.18;
+        const cy = h*0.5;
+        const scale = (Math.min(w,h)-160)/100;
+
+        let dirText;
+
+        if(t2.dir==="right"){
+            const len1 = t2.F1*scale;
+            const len2 = t2.F2*scale;
+            const lenR = (t2.F1+t2.F2)*scale;
+
+            const f1_tail = {x:cx,y:cy};
+            const f1_tip  = {x:cx+len1,y:cy};
+            const f2_tail = {x:cx+len1+10,y:cy};
+            const f2_tip  = {x:cx+len1+10+len2,y:cy};
+            const r_tail  = {x:cx,y:cy+40};
+            const r_tip   = {x:cx+lenR,y:cy+40};
+
+            drawOriginDot(ctx,f1_tail.x,f1_tail.y);
+            drawOriginDot(ctx,f2_tail.x,f2_tail.y);
+            drawOriginDot(ctx,r_tail.x,r_tail.y);
+
+            drawProjections(ctx,f1_tail.x,f1_tail.y,f1_tip.x,f1_tip.y,axisX,axisY,
+                            "rgba(56,189,248,0.9)","rgba(251,191,36,0.9)");
+            drawProjections(ctx,f2_tail.x,f2_tail.y,f2_tip.x,f2_tip.y,axisX,axisY,
+                            "rgba(94,234,212,0.9)","rgba(253,224,71,0.9)");
+            drawProjections(ctx,r_tail.x,r_tail.y,r_tip.x,r_tip.y,axisX,axisY,
+                            "rgba(96,165,250,0.9)","rgba(248,250,252,0.95)");
+
+            drawArrow(ctx,f1_tail.x,f1_tail.y,f1_tip.x,f1_tip.y,"F₁");
+            drawArrow(ctx,f2_tail.x,f2_tail.y,f2_tip.x,f2_tip.y,"F₂");
+            drawArrow(ctx,r_tail.x,r_tail.y,r_tip.x,r_tip.y,"R = F₁ + F₂",{lineWidth:3});
+
+            dirText="orizontală spre dreapta";
+        }else{
+            const len1 = t2.F1*scale;
+            const len2 = t2.F2*scale;
+            const lenR = (t2.F1+t2.F2)*scale;
+
+            const f1_tail = {x:cx,y:cy};
+            const f1_tip  = {x:cx,y:cy-len1};
+            const f2_tail = {x:cx+40,y:cy};
+            const f2_tip  = {x:cx+40,y:cy-len2};
+            const r_tail  = {x:cx+80,y:cy};
+            const r_tip   = {x:cx+80,y:cy-lenR};
+
+            drawOriginDot(ctx,f1_tail.x,f1_tail.y);
+            drawOriginDot(ctx,f2_tail.x,f2_tail.y);
+            drawOriginDot(ctx,r_tail.x,r_tail.y);
+
+            drawProjections(ctx,f1_tail.x,f1_tail.y,f1_tip.x,f1_tip.y,axisX,axisY);
+            drawProjections(ctx,f2_tail.x,f2_tail.y,f2_tip.x,f2_tip.y,axisX,axisY,
+                            "rgba(94,234,212,0.9)","rgba(253,224,71,0.9)");
+            drawProjections(ctx,r_tail.x,r_tail.y,r_tip.x,r_tip.y,axisX,axisY,
+                            "rgba(96,165,250,0.9)","rgba(248,250,252,0.95)");
+
+            drawArrow(ctx,f1_tail.x,f1_tail.y,f1_tip.x,f1_tip.y,"F₁");
+            drawArrow(ctx,f2_tail.x,f2_tail.y,f2_tip.x,f2_tip.y,"F₂");
+            drawArrow(ctx,r_tail.x,r_tail.y,r_tip.x,r_tip.y,"R = F₁ + F₂",{lineWidth:3});
+
+            dirText="verticală în sus";
+        }
+
+        ctx.fillStyle = "rgba(148,163,184,0.9)";
+        ctx.font = "11px system-ui";
+        ctx.fillText("Două forțe cu aceeași direcție și același sens → R = F₁ + F₂.", 14, 22);
+
+        ctx.restore();
+
+        document.getElementById('t2_F1_val').textContent = t2.F1.toFixed(1)+" N";
+        document.getElementById('t2_F2_val').textContent = t2.F2.toFixed(1)+" N";
+        document.getElementById('t2_R_val').textContent  = (t2.F1+t2.F2).toFixed(1)+" N";
+        document.getElementById('t2_dir_val').textContent= dirText;
+    }
+
+    // === TAB 3 desen ===
+    function drawTab3(ctx, canvas){
+        resizeCanvas(canvas);
+        const rect = canvas.getBoundingClientRect();
+        const w = rect.width;
+        const h = rect.height;
+
+        ctx.clearRect(0,0,w,h);
+        ctx.save();
+        ctx.fillStyle = "rgba(15,23,42,0.95)";
+        ctx.fillRect(0,0,w,h);
+
+        const axes = drawAxes2D(ctx,w,h);
+        const axisX = axes.axisX;
+        const axisY = axes.axisY;
+
+        const cx = w*0.5;
+        const cy = h*0.5;
+        const scale = (Math.min(w,h)-160)/100;
+
+        const len1 = t3.F1*scale;
+        const len2 = t3.F2*scale;
+
+        const f1_tail = {x:cx,y:cy};
+        const f1_tip  = {x:cx+len1,y:cy};
+        const f2_tail = {x:cx,y:cy};
+        const f2_tip  = {x:cx-len2,y:cy};
+
+        drawOriginDot(ctx,f1_tail.x,f1_tail.y);
+        drawOriginDot(ctx,f2_tail.x,f2_tail.y);
+
+        drawProjections(ctx,f1_tail.x,f1_tail.y,f1_tip.x,f1_tip.y,axisX,axisY);
+        drawProjections(ctx,f2_tail.x,f2_tail.y,f2_tip.x,f2_tip.y,axisX,axisY,
+                        "rgba(94,234,212,0.9)","rgba(253,224,71,0.9)");
+
+        drawArrow(ctx,f1_tail.x,f1_tail.y,f1_tip.x,f1_tip.y,"F₁");
+        drawArrow(ctx,f2_tail.x,f2_tail.y,f2_tip.x,f2_tip.y,"F₂");
+
+        const diff = Math.abs(t3.F1 - t3.F2);
+        let dirText;
+
+        if(diff === 0){
+            dirText = "niciun sens – rezultanta nulă";
+            ctx.fillStyle = "rgba(248,250,252,0.9)";
+            ctx.font = "12px system-ui";
+            ctx.fillText("F₁ și F₂ se compensează (|R| = 0)", 18, 26);
+        }else{
+            const lenR = diff*scale;
+            const r_tail = {x:cx,y:cy+40};
+            const r_tip  = t3.F1>t3.F2 ?
+                           {x:cx+lenR,y:cy+40} :
+                           {x:cx-lenR,y:cy+40};
+
+            drawOriginDot(ctx,r_tail.x,r_tail.y);
+            drawProjections(ctx,r_tail.x,r_tail.y,r_tip.x,r_tip.y,axisX,axisY,
+                            "rgba(96,165,250,0.9)","rgba(248,250,252,0.95)");
+            drawArrow(ctx,r_tail.x,r_tail.y,r_tip.x,r_tip.y,"R",{lineWidth:3, color: resultColor});
+
+            if(t3.F1>t3.F2){
+                dirText = "spre dreapta (sensul lui F₁)";
+            }else{
+                dirText = "spre stânga (sensul lui F₂)";
+            }
+
+            ctx.fillStyle = "rgba(148,163,184,0.9)";
+            ctx.font = "11px system-ui";
+            ctx.fillText("Rezultanta are sensul forței cu modulul mai mare.", 18, 22);
+        }
+
+        ctx.restore();
+
+        document.getElementById('t3_F1_val').textContent = t3.F1.toFixed(1)+" N";
+        document.getElementById('t3_F2_val').textContent = t3.F2.toFixed(1)+" N";
+        document.getElementById('t3_R_val').textContent  = diff.toFixed(1)+" N";
+        document.getElementById('t3_R_dir_val').textContent = dirText;
+    }
+
+    // === TAB 4 desen ===
+    function drawTab4(ctx, canvas){
+        resizeCanvas(canvas);
+        const rect = canvas.getBoundingClientRect();
+        const w = rect.width;
+        const h = rect.height;
+
+        ctx.clearRect(0,0,w,h);
+        ctx.save();
+        ctx.fillStyle = "rgba(15,23,42,0.95)";
+        ctx.fillRect(0,0,w,h);
+
+        const axes = drawAxes2D(ctx,w,h);
+        const axisX = axes.axisX;
+        const axisY = axes.axisY;
+
+        const originX = w*0.25;
+        const originY = h*0.7;
+        const scale = (Math.min(w,h)-160)/100;
+
+        const len1 = t4.F1*scale;
+        const len2 = t4.F2*scale;
+        const alphaRad = t4.alpha*Math.PI/180;
+
+        const F1x = len1;
+        const F1y = 0;
+        const F2x = len2*Math.cos(alphaRad);
+        const F2y = -len2*Math.sin(alphaRad);
+
+        const f1_tail = {x:originX,y:originY};
+        const f1_tip  = {x:originX+F1x,y:originY+F1y};
+        const f2_tail = {x:originX,y:originY};
+        const f2_tip  = {x:originX+F2x,y:originY+F2y};
+
+        const RxPix = F1x + F2x;
+        const RyPix = F1y + F2y;
+        const r_tail = {x:originX,y:originY};
+        const r_tip  = {x:originX+RxPix,y:originY+RyPix};
+
+        drawOriginDot(ctx,originX,originY);
+
+        drawProjections(ctx,f1_tail.x,f1_tail.y,f1_tip.x,f1_tip.y,axisX,axisY);
+        drawProjections(ctx,f2_tail.x,f2_tail.y,f2_tip.x,f2_tip.y,axisX,axisY,
+                        "rgba(94,234,212,0.9)","rgba(253,224,71,0.9)");
+        drawProjections(ctx,r_tail.x,r_tail.y,r_tip.x,r_tip.y,axisX,axisY,
+                        "rgba(96,165,250,0.9)","rgba(248,250,252,0.95)");
+
+        drawArrow(ctx,f1_tail.x,f1_tail.y,f1_tip.x,f1_tip.y,"F₁");
+        drawArrow(ctx,f2_tail.x,f2_tail.y,f2_tip.x,f2_tip.y,"F₂");
+
+        ctx.save();
+        ctx.strokeStyle = "rgba(148,163,184,0.7)";
+        ctx.setLineDash([6,4]);
+        ctx.beginPath();
+        ctx.moveTo(originX+F1x,originY+F1y);
+        ctx.lineTo(originX+F1x+F2x,originY+F1y+F2y);
+        ctx.lineTo(originX+F2x,originY+F2y);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.restore();
+
+        drawArrow(ctx,r_tail.x,r_tail.y,r_tip.x,r_tip.y,"R",{lineWidth:3, color: resultColor});
+
+        ctx.fillStyle = "rgba(148,163,184,0.9)";
+        ctx.font = "11px system-ui";
+        ctx.fillText("Rezultanta este diagonala paralelogramului construit pe F₁ și F₂.", 16, 22);
+
+        ctx.restore();
+
+        const RxN = t4.F1 + t4.F2*Math.cos(alphaRad);
+        const RyN = t4.F2*Math.sin(alphaRad);
+        const Rmod = Math.sqrt(RxN*RxN + RyN*RyN);
+
+        document.getElementById('t4_F1_val').textContent   = t4.F1.toFixed(1)+" N";
+        document.getElementById('t4_F2_val').textContent   = t4.F2.toFixed(1)+" N";
+        document.getElementById('t4_alpha_val').textContent= t4.alpha.toFixed(1)+"°";
+        document.getElementById('t4_R_val').textContent    = Rmod.toFixed(2)+" N";
+        document.getElementById('t4_Rx_val').textContent   = RxN.toFixed(2)+" N";
+        document.getElementById('t4_Ry_val').textContent   = RyN.toFixed(2)+" N";
+    }
+
+    let lastTime = null;
+    function render(time){
+        if(typeof time !== 'number') time = performance.now();
+        if(lastTime === null) lastTime = time;
+        const dt = (time - lastTime)/1000;
+        lastTime = time;
+
+        drawTab1(ctxs[0],canvases[0],dt);
+        drawTab2(ctxs[1],canvases[1]);
+        drawTab3(ctxs[2],canvases[2]);
+        drawTab4(ctxs[3],canvases[3]);
+
+        requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
+
+    window.addEventListener('resize', ()=>{
+        canvases.forEach(c=>resizeCanvas(c));
+    });
+})();
+</script>
+</body>
+</html>
